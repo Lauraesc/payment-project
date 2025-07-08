@@ -14,6 +14,8 @@ import io.netty.channel.epoll.EpollChannelOption;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import java.time.Duration;
+
+import org.springframework.core.env.Environment;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.List;
@@ -41,18 +43,18 @@ import reactor.netty.http.client.HttpClient;
 @RestController
 @RequestMapping("/customer")
 public class CustomerRestController {
-    
+
     @Autowired
     CustomerRepository customerRepository;
-    
-     private final WebClient.Builder webClientBuilder;
-     
-      public CustomerRestController(WebClient.Builder webClientBuilder) {
+
+    private final WebClient.Builder webClientBuilder;
+
+    public CustomerRestController(WebClient.Builder webClientBuilder) {
         this.webClientBuilder = webClientBuilder;
     }
-      
-      
-      //webClient requires HttpClient library to work propertly       
+
+
+    //webClient requires HttpClient library to work propertly
     HttpClient client = HttpClient.create()
             //Connection Timeout: is a period within which a connection between a client and a server must be established
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
@@ -67,22 +69,22 @@ public class CustomerRestController {
                 connection.addHandlerLast(new ReadTimeoutHandler(5000, TimeUnit.MILLISECONDS));
                 connection.addHandlerLast(new WriteTimeoutHandler(5000, TimeUnit.MILLISECONDS));
             });
-      
-    
+
+
     @GetMapping()
     public List<Customer> list() {
         return customerRepository.findAll();
     }
-    
+
     @GetMapping("/{id}")
     public Customer get(@PathVariable(name = "id") long id) {
         return customerRepository.findById(id).get();
     }
-    
+
     @PutMapping("/{id}")
     public ResponseEntity<?> put(@PathVariable(name = "id") long id, @RequestBody Customer input) {
-         Customer find = customerRepository.findById(id).get();   
-        if(find != null){     
+        Customer find = customerRepository.findById(id).get();
+        if (find != null) {
             find.setCode(input.getCode());
             find.setName(input.getName());
             find.setIban(input.getIban());
@@ -90,40 +92,41 @@ public class CustomerRestController {
             find.setSurname(input.getSurname());
         }
         Customer save = customerRepository.save(find);
-           return ResponseEntity.ok(save);
+        return ResponseEntity.ok(save);
     }
-    
+
     @PostMapping
     public ResponseEntity<?> post(@RequestBody Customer input) {
         input.getProducts().forEach(x -> x.setCustomer(input));
         Customer save = customerRepository.save(input);
         return ResponseEntity.ok(save);
     }
-    
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable(name = "id") long id) {
-          Optional<Customer> findById = customerRepository.findById(id);   
-        if(findById.get() != null){               
-                  customerRepository.delete(findById.get());  
+        Optional<Customer> findById = customerRepository.findById(id);
+        if (findById.get() != null) {
+            customerRepository.delete(findById.get());
         }
         return ResponseEntity.ok().build();
     }
-    
-    
-     @GetMapping("/full")
+
+
+    @GetMapping("/full")
     public Customer getByCode(@RequestParam(name = "code") String code) {
         Customer customer = customerRepository.findByCode(code);
         List<CustomerProduct> products = customer.getProducts();
-        products.forEach(x ->{
+
+        products.forEach(x -> {
             String productName = getProductName(x.getId());
             x.setProductName(productName);
         });
+
+        customer.setTransactions(getTransactions(customer.getIban()));
         return customer;
-       
+
     }
-    
-    
-    
+
        
     private String getProductName(long id) { 
         WebClient build = webClientBuilder.clientConnector(new ReactorClientHttpConnector(client))
@@ -135,6 +138,34 @@ public class CustomerRestController {
                 .retrieve().bodyToMono(JsonNode.class).block();
         String name = block.get("name").asText();
         return name;
+    }
+
+    private List<?> getTransactions(String iban) {
+        WebClient build = webClientBuilder.clientConnector(new ReactorClientHttpConnector(client))
+                .baseUrl("http://localhost:8084/transaction")
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+
+        List<?> transactions = build.method(HttpMethod.GET)
+                .uri(uriBuilder -> uriBuilder
+                        .path("/customer/transactions")
+                        .queryParam("accountIban", iban) //nro. cta cliente para listado
+                        .build())
+                        .retrieve()
+                .bodyToFlux(Object.class)
+                .collectList()
+                .block();
+
+        return transactions;
+    }
+
+
+        @Autowired
+    private Environment env;
+
+    @GetMapping("/check")
+    public String check() {
+        return "Your property value is: " + env.getProperty("custom.activeprofileName");
     }
     
     
