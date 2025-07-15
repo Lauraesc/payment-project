@@ -9,9 +9,15 @@
         <outputRelativeToContentRoot value="true" />
         <module name="product" />
         <module name="configserver" />
+        <module name="eurekaServer" />
         <module name="transaction" />
         <module name="customer" />
       </profile>
     </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="eurekaServer" options="" />
+    </option>
   </component>
 </project>

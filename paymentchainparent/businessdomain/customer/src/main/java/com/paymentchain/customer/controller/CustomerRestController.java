@@ -47,11 +47,14 @@ public class CustomerRestController {
     @Autowired
     CustomerRepository customerRepository;
 
-    private final WebClient.Builder webClientBuilder;
+    @Autowired
+    private WebClient.Builder webClientBuilder;
+
+    /* private final WebClient.Builder webClientBuilder;
 
     public CustomerRestController(WebClient.Builder webClientBuilder) {
         this.webClientBuilder = webClientBuilder;
-    }
+    } */
 
 
     //webClient requires HttpClient library to work propertly
@@ -115,14 +118,18 @@ public class CustomerRestController {
     @GetMapping("/full")
     public Customer getByCode(@RequestParam(name = "code") String code) {
         Customer customer = customerRepository.findByCode(code);
-        List<CustomerProduct> products = customer.getProducts();
 
-        products.forEach(x -> {
-            String productName = getProductName(x.getId());
-            x.setProductName(productName);
-        });
+        if(customer != null) {
+            List<CustomerProduct> products = customer.getProducts();
 
-        customer.setTransactions(getTransactions(customer.getIban()));
+            products.forEach(x -> {
+                String productName = getProductName(x.getId());
+                x.setProductName(productName);
+            });
+
+           /* List<?> transactions = getTransactions(customer.getIban());
+            customer.setTransactions(transactions); */
+        }
         return customer;
 
     }
@@ -130,9 +137,9 @@ public class CustomerRestController {
        
     private String getProductName(long id) { 
         WebClient build = webClientBuilder.clientConnector(new ReactorClientHttpConnector(client))
-                .baseUrl("http://localhost:8083/product")
+                .baseUrl("http://BUSINESSDOMAIN-PRODUCT/product")
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .defaultUriVariables(Collections.singletonMap("url", "http://localhost:8083/product"))
+                .defaultUriVariables(Collections.singletonMap("url", "http://BUSINESSDOMAIN-PRODUCT/product"))
                 .build();
         JsonNode block = build.method(HttpMethod.GET).uri("/" + id)
                 .retrieve().bodyToMono(JsonNode.class).block();

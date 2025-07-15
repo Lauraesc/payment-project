@@ -14,5 +14,6 @@
 
     <modules>
         <module>configserver</module>
+        <module>eurekaServer</module>
     </modules>
 </project>
