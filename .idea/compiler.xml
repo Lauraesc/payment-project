@@ -12,12 +12,14 @@
         <module name="eurekaServer" />
         <module name="transaction" />
         <module name="customer" />
+        <module name="springBootAdmin" />
       </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="eurekaServer" options="" />
+      <module name="springBootAdmin" options="" />
     </option>
   </component>
 </project>

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 
 @RestController
@@ -18,49 +19,9 @@ public class TransactionRestController {
 
     @Autowired
     TransactionRepository transactionRepository;
-    private String accountIban;
 
-    @PostMapping
-    public ResponseEntity<?> create(@RequestBody Transaction input) {
 
-        // reglas de negocio
-        if (input.getAmount() == 0) {
-            return ResponseEntity.badRequest().body("El monto no puede ser cero");
-        }
-
-        if (input.getFee() > 0) {
-            input.setAmount(input.getAmount() - input.getFee());
-        }
-
-        if (input.getDate().isAfter(LocalDate.now())) {
-            input.setStatus(Status.PENDIENTE);
-        } else {
-            input.setStatus(Status.LIQUIDADA);
-        }
-
-        Transaction saved = transactionRepository.save(input);
-        return ResponseEntity.ok(saved);
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable("id") long id, @RequestBody Transaction input) {
-        return transactionRepository.findById(id)
-                .map(existing -> {
-                    existing.setReference(input.getReference());
-                    existing.setAccountIban(input.getAccountIban());
-                    existing.setDate(input.getDate());
-                    existing.setAmount(input.getAmount());
-                    existing.setFee(input.getFee());
-                    existing.setDescription(input.getDescription());
-                    existing.setChannel(input.getChannel());
-                    existing.setStatus(Status.fromCode(input.getStatusCode()));
-                    Transaction updated = transactionRepository.save(existing);
-                    return ResponseEntity.ok(updated);
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @GetMapping
+    @GetMapping()
     public List<Transaction> list() {
         return transactionRepository.findAll();
     }
@@ -71,21 +32,39 @@ public class TransactionRestController {
     }
 
     @GetMapping("/customer/transactions")
-    public List<Transaction> get(@RequestParam(name = "accountIban") String accountIban) {
-        return transactionRepository.findByAccountIban(accountIban);
+    public List<Transaction> get(@RequestParam(name = "accountIban") String ibanAccount) {
+        return transactionRepository.findByAccountIban(ibanAccount);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> put(@PathVariable(name = "id") long id, @RequestBody Transaction input) {
+        Transaction find = transactionRepository.findById(id).get();
+        if (find != null) {
+            find.setAmount(input.getAmount());
+            find.setChannel(input.getChannel());
+            find.setDate(input.getDate());
+            find.setDescription(input.getDescription());
+            find.setFee(input.getFee());
+            find.setAccountIban(input.getAccountIban());
+            find.setReference(input.getReference());
+            find.setStatus(input.getStatus());
+        }
+        Transaction save = transactionRepository.save(find);
+        return ResponseEntity.ok(save);
+    }
+
+    @PostMapping
+    public ResponseEntity<?> post(@RequestBody Transaction input) {
+        Transaction save = transactionRepository.save(input);
+        return ResponseEntity.ok(save);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable("id") long id) {
-        return transactionRepository.findById(id)
-                .map(existing -> {
-                    transactionRepository.delete(existing);
-                    return ResponseEntity.ok().build();
-                })
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> delete(@PathVariable(name = "id") long id) {
+        Optional<Transaction> findById = transactionRepository.findById(id);
+        if(findById.get() != null){
+            transactionRepository.delete(findById.get());
+        }
+        return ResponseEntity.ok().build();
     }
-
-
-    // para devolver saldo + lista de transacciones
-    record TransactionSummary(List<Transaction> transactions, double balance) {}
 }
